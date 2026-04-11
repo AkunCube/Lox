@@ -130,6 +130,7 @@ static void skipWhitespace() {
     switch (c) {
       case '\n':
         scanner.line++;
+        /* fall through */
       case ' ':
       case '\r':
       case '\t':
