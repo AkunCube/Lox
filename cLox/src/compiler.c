@@ -6,6 +6,7 @@
 #include "chunk.h"
 #include "common.h"
 #include "compiler.h"
+#include "memory.h"
 #include "object.h"
 
 #ifdef DEBUG_PRINT_CODE
@@ -939,4 +940,12 @@ static int addUpValue(Compiler *compiler, uint8_t index, bool isLocal) {
   compiler->upvalues[upValueCount].isLocal = isLocal;
   compiler->upvalues[upValueCount].index = index;
   return compiler->function->upValueCount++;
+}
+
+void markCompilerRoots() {
+  Compiler *compiler = current;
+  while (compiler) {
+    markObject((Obj *)compiler->function);
+    compiler = compiler->enclosing;
+  }
 }

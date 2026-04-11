@@ -6,6 +6,9 @@
 
 void *reallocate(void *pointer, size_t oldSize, size_t newSize);
 void freeObjects();
+void collectGarbage();
+void markValue(Value value);
+void markObject(Obj *object);
 
 #define GROW_CAPACITY(capacity) ((capacity) < 8 ? 8 : (capacity)*2)
 

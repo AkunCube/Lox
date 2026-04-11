@@ -110,7 +110,9 @@ static ObjString *allocateString(char *chars, int length, uint32_t hash) {
   string->length = length;
   string->hash = hash;
 
+  push(OBJ_VAL(string)); // Inform the GC about the string.
   tableSet(&vm.strings, string, NIL_VAL);
+  pop(); // Value is safe now.
   return string;
 }
 
@@ -118,9 +120,13 @@ static Obj *allocateObject(size_t objSize, ObjType type) {
   Obj *object = (Obj *)reallocate(NULL, 0, objSize);
 
   object->type = type;
-
+  object->isMarked = false;
   object->next = vm.objects;
   vm.objects = object;
+
+#ifdef DEBUG_LOG_GC
+  printf("%p allocate %zu for %d\n", (void *)object, objSize, type);
+#endif
   return object;
 }
 

@@ -25,6 +25,14 @@ typedef struct {
   Table globals;
   ObjUpvalue *openUpvalues;
   Obj *objects;
+
+  size_t bytesAllocated; // The total bytes allocated.
+  size_t nextGC;         // The threshold for next garbage collection.
+
+  // Garbage collection.
+  int grayCount;
+  int grayCapacity;
+  Obj **grayStack;
 } VM;
 
 typedef enum {
