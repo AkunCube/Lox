@@ -25,6 +25,8 @@ static void runtimeError(const char *format, ...);
 static bool isFalsey(Value value);
 static void concatenate();
 static bool callValue(Value callee, uint8_t argCount);
+static ObjUpvalue *captureUpvalue(Value *local);
+static void closeUpvalues(Value *last);
 static bool call(ObjClosure *closure, int argCount);
 static void defineNative(const char *name, NativeFn function);
 static Value clockNative(int argCount, Value *args);
@@ -241,10 +243,20 @@ static InterpretResult run() {
         ObjFunction *function = AS_FUNCTION(READ_CONSTANT());
         ObjClosure *closure = newClosure(function);
         push(OBJ_VAL(closure)); // wrap it to a closure.
+        for (int i = 0; i < function->upValueCount; ++i) {
+          uint8_t isLocal = READ_BYTE();
+          uint8_t index = READ_BYTE();
+          if (isLocal) {
+            closure->upvalues[i] = captureUpvalue(frame->slots + index);
+          } else {
+            closure->upvalues[i] = frame->closure->upvalues[index];
+          }
+        }
         break;
       }
       case OP_RETURN: {
         Value result = pop();
+        closeUpvalues(frame->slots);
         --vm.frameCount;
         if (vm.frameCount == 0) {
           //* at the beginning, we do `call(function, 0);`.
@@ -254,6 +266,21 @@ static InterpretResult run() {
         vm.stackTop = frame->slots;
         push(result);
         frame = &vm.frames[vm.frameCount - 1];
+        break;
+      }
+      case OP_GET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        push(*frame->closure->upvalues[slot]->location);
+        break;
+      }
+      case OP_SET_UPVALUE: {
+        uint8_t slot = READ_BYTE();
+        *frame->closure->upvalues[slot]->location = peek(0);
+        break;
+      }
+      case OP_CLOSE_UPVALUE: {
+        closeUpvalues(vm.stackTop - 1);
+        pop();
         break;
       }
     }
@@ -270,6 +297,7 @@ static InterpretResult run() {
 static void resetStack() {
   vm.stackTop = vm.stack;
   vm.frameCount = 0;
+  vm.openUpvalues = NULL;
 }
 
 static void printStack() {
@@ -386,4 +414,37 @@ static Value clockNative(int argCount, Value *args) {
   assert(args != NULL);
   assert(argCount == 0);
   return NUMBER_VAL((double)clock() / CLOCKS_PER_SEC);
+}
+
+static ObjUpvalue *captureUpvalue(Value *local) {
+  ObjUpvalue *prevUpvalue = NULL;
+  ObjUpvalue *upvalue = vm.openUpvalues;
+
+  while (upvalue && upvalue->location > local) {
+    prevUpvalue = upvalue;
+    upvalue = upvalue->next;
+  }
+  if (upvalue && upvalue->location == local) {
+    return upvalue;
+  }
+  ObjUpvalue *createdUpvalue = newUpvalue(local);
+  createdUpvalue->next = upvalue;
+  if (prevUpvalue) {
+    prevUpvalue->next = createdUpvalue;
+  } else {
+    vm.openUpvalues = createdUpvalue;
+  }
+  return createdUpvalue;
+}
+
+static void closeUpvalues(Value *last) {
+  // Closing upvalues and moving them from the stack to the heap.
+  while (vm.openUpvalues && vm.openUpvalues->location >= last) {
+    ObjUpvalue *upvalue = vm.openUpvalues;
+    // Move the value from stack to heap.
+    // Since ObjUpvalue is alloced from heap.
+    upvalue->closed = *upvalue->location;
+    upvalue->location = &upvalue->closed;
+    vm.openUpvalues = upvalue->next;
+  }
 }
