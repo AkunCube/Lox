@@ -9,6 +9,7 @@ static int constantInstruction(const char *name, Chunk *chunk, int offset);
 static int byteInstruction(const char *name, Chunk *chunk, int offset);
 static int jumpInstruction(const char *name, int sign, Chunk *chunk,
                            int offset);
+static int invokeInstruction(const char *name, Chunk *chunk, int offset);
 
 void disassembleChunk(Chunk *chunk, const char *name) {
   printf("== %s ==\n", name);
@@ -110,6 +111,10 @@ int disassembleInstruction(Chunk *chunk, int offset) {
       return constantInstruction("OP_GET_PROPERTY", chunk, offset);
     case OP_SET_PROPERTY:
       return constantInstruction("OP_SET_PROPERTY", chunk, offset);
+    case OP_METHOD:
+      return constantInstruction("OP_METHOD", chunk, offset);
+    case OP_INVOKE:
+      return invokeInstruction("OP_INVOKE", chunk, offset);
     default:
       printf("Unknown opcode %d\n", instruction);
       // return next offset.
@@ -141,5 +146,14 @@ static int jumpInstruction(const char *name, int sign, Chunk *chunk,
   uint16_t jump = (uint16_t)(chunk->code[offset + 1] << 8);
   jump |= chunk->code[offset + 2];
   printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
+  return offset + 3;
+}
+
+static int invokeInstruction(const char *name, Chunk *chunk, int offset) {
+  uint8_t constant = chunk->code[offset + 1];
+  uint8_t argCount = chunk->code[offset + 2];
+  printf("%-16s (%d args) %4d '", name, argCount, constant);
+  printValue(chunk->constants.values[constant]);
+  printf("'\n");
   return offset + 3;
 }
