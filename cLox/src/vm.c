@@ -176,7 +176,7 @@ static InterpretResult run() {
           runtimeError("Operand must be a number.");
           return INTERPRET_RUNTIME_ERROR;
         }
-        (*val).number = -(*val).number;
+        push(NUMBER_VAL(-AS_NUMBER(pop())));
         break;
       case OP_DEFINE_GLOBAL: {
         ObjString *name = READ_STRING();

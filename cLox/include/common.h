@@ -16,4 +16,6 @@
 #undef DEBUG_STRESS_GC
 #undef DEBUG_LOG_GC
 
+#define NAN_BOXING
+
 #endif
